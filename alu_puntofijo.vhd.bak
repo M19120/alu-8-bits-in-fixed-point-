@@ -1,0 +1,168 @@
+library ieee; 
+use ieee.std_logic_1164.all; 
+use ieee.numeric_std.all;
+use ieee.std_logic_unsigned.all;
+
+entity alu_puntofijo is 
+port( a,b: in std_logic_vector(7 downto 0); --entradas
+		buss: in std_logic_vector(1 downto 0); --selector de operaciones
+		signo: out std_logic;
+		clk: in std_logic;
+		displays: out std_logic_vector(3 downto 0); --digitos
+		segments: out std_logic_vector(7 downto 0) --salida segments
+);
+end alu_puntofijo; 
+
+architecture rtl of alu_puntofijo is 
+signal resultado: std_logic_vector(15 downto 0):=(others=>'0');
+constant contador: integer :=208833;
+signal reset_count: integer range 0 to contador;
+signal selection: std_logic_vector(1 downto 0):=(others=>'0');
+signal show_disp: std_logic_vector(3 downto 0);
+signal num1,num2,num3,num4: std_logic_vector(7 downto 0);
+signal complemento: std_logic_vector(7 downto 0):=(others=>'0');
+signal a1,b1,sum: signed(7 downto 0);
+begin 
+	a1<=signed(a);
+	b1<=signed(b);
+	complemento<= not(b) +'1';
+
+	process(a,b,buss)
+	begin
+			case buss is 
+				--if(buss(2) = '1') then
+					when "00"=> --suma 
+							if(a1(7) = '0' and b1(7)= '0') then 
+								resultado<="0000"&std_logic_vector(signed(a)+signed(b))&"0000";
+							else 
+								resultado<="1111"&std_logic_vector(unsigned(a)+unsigned(b))&"0000";
+							end if;
+					when "01"=> --resta
+						if(a<b) then
+							resultado<="000"&('0' &a)+('0'&complemento) & "0000";
+							signo<='1';
+						else 
+							resultado<="000"&('0' &a)-('0'&b) & "0000";
+							signo<='0';
+						end if;
+					when "10"=> --multplicacion	
+							resultado <= std_logic_vector(unsigned(a) *unsigned(b));
+							signo<='1';
+					when others=> resultado<=(others=>'0');
+							signo<= '1';
+			end case;
+	end process;
+
+	process(clk)
+	begin 
+		if(rising_edge(clk))then 
+			if reset_count < contador then 
+				reset_count <= reset_count +1;
+			else 
+				selection<= selection+1;
+				reset_count<=0;
+			end if;
+		end if;
+	end process;
+	
+	process(selection)
+	begin
+		case selection is 
+			when "00"=> show_disp<="1110";
+			when "01"=> show_disp<="1101";
+			when "10"=> show_disp<="1011";
+			when "11"=> show_disp<="0111";
+			when others=> show_disp<="1111";
+		end case;
+		
+		case show_disp is 
+			when "0111"=> segments<=num1;
+			when "1011"=> segments<=num2;
+			when "1101"=> segments<=num3;
+			when "1110"=> segments<=num4;
+			when others=> segments<="11111111";
+		end case;		
+	end process;
+	displays<=show_disp;
+	
+	-- Para displays anodo común
+	with resultado(3 downto 0) select
+				  --abcdefgdp
+		num1 <=	"00000011" when "0000", -- 0
+					"10011111" when "0001", -- 1
+					"00100101" when "0010", -- 2
+					"00001101" when "0011", -- 3
+					"10011001" when "0100", -- 4
+					"01001001" when "0101", -- 5
+					"01000001" when "0110", -- 6
+					"00011111" when "0111", -- 7
+					"00000001" when "1000", -- 8
+					"00011001" when "1001", -- 9
+					"00010001" when "1010", -- A
+					"11000001" when "1011", -- B
+					"01100011" when "1100", -- C
+					"10000101" when "1101", -- D
+					"01100001" when "1110", -- E
+					"01110001" when "1111", -- F
+					"11111111" when others;
+	
+	with resultado(7 downto 4) select
+				  --abcdefgdp
+		num2 <=	"00000011" when "0000", -- 0
+					"10011111" when "0001", -- 1
+					"00100101" when "0010", -- 2
+					"00001101" when "0011", -- 3
+					"10011001" when "0100", -- 4
+					"01001001" when "0101", -- 5
+					"01000001" when "0110", -- 6
+					"00011111" when "0111", -- 7
+					"00000001" when "1000", -- 8
+					"00011001" when "1001", -- 9
+					"00010001" when "1010", -- A
+					"11000001" when "1011", -- B
+					"01100011" when "1100", -- C
+					"10000101" when "1101", -- D
+					"01100001" when "1110", -- E
+					"01110001" when "1111", -- F
+					"11111111" when others;
+	with resultado(11 downto 8) select --al ser punto fijo, encendemos el punto en el tercer display
+				  --abcdefgdp
+		num3 <=	"00000010" when "0000", -- 0
+					"10011110" when "0001", -- 1
+					"00100100" when "0010", -- 2
+					"00001100" when "0011", -- 3
+					"10011000" when "0100", -- 4
+					"01001000" when "0101", -- 5
+					"01000000" when "0110", -- 6
+					"00011110" when "0111", -- 7
+					"00000000" when "1000", -- 8
+					"00011000" when "1001", -- 9
+					"00010000" when "1010", -- A
+					"11000000" when "1011", -- B
+					"01100010" when "1100", -- C
+					"10000100" when "1101", -- D
+					"01100000" when "1110", -- E
+					"01110000" when "1111", -- F
+					"11111111" when others;
+
+	with resultado(15 downto 12) select
+				  --abcdefgdp
+		num4 <=	"00000011" when "0000", -- 0
+					"10011111" when "0001", -- 1
+					"00100101" when "0010", -- 2
+					"00001101" when "0011", -- 3
+					"10011001" when "0100", -- 4
+					"01001001" when "0101", -- 5
+					"01000001" when "0110", -- 6
+					"00011111" when "0111", -- 7
+					"00000001" when "1000", -- 8
+					"00011001" when "1001", -- 9
+					"00010001" when "1010", -- A
+					"11000001" when "1011", -- B
+					"01100011" when "1100", -- C
+					"10000101" when "1101", -- D
+					"01100001" when "1110", -- E
+					"01110001" when "1111", -- F
+					"11111111" when others;
+
+end rtl; 
